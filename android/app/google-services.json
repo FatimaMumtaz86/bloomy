@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "410774589175",
+    "project_id": "bloomy-d6620",
+    "storage_bucket": "bloomy-d6620.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:410774589175:android:411704279c00c99a664df2",
+        "android_client_info": {
+          "package_name": "com.bloomy.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "410774589175-hhnul3q64gbof5hufop395l62qfuomlr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDW0srH4LU_37NMGCAl8hqC6hXCXWurb2Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "410774589175-hhnul3q64gbof5hufop395l62qfuomlr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

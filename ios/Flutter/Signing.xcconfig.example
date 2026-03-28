@@ -1,0 +1,10 @@
+// Copy to ios/Flutter/Signing.xcconfig and set your real values.
+// Keep Signing.xcconfig out of git.
+
+// Automatic signing (recommended)
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM = YOUR_TEAM_ID
+
+// Optional for manual signing:
+// PROVISIONING_PROFILE_SPECIFIER = Bloomy AppStore Profile
+// CODE_SIGN_IDENTITY = Apple Distribution

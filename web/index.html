@@ -1,0 +1,197 @@
+<!DOCTYPE html><html><head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="bloomy">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png">
+
+  <title>bloomy</title>
+  <link rel="manifest" href="manifest.json">
+  <style id="splash-screen-style">
+    html {
+      height: 100%
+    }
+
+    body {
+      margin: 0;
+      min-height: 100%;
+      background-color: #FFF7FB;
+          background-size: 100% 100%;
+    }
+
+    .center {
+      margin: 0;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      -ms-transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%);
+    }
+
+    .contain {
+      display:block;
+      width:100%; height:100%;
+      object-fit: contain;
+    }
+
+    .stretch {
+      display:block;
+      width:100%; height:100%;
+    }
+
+    .cover {
+      display:block;
+      width:100%; height:100%;
+      object-fit: cover;
+    }
+
+    .bottom {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      -ms-transform: translate(-50%, 0);
+      transform: translate(-50%, 0);
+    }
+
+    .bottomLeft {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+    }
+
+    .bottomRight {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+    }
+
+    .bloomy-quick-links {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 300px;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    .bloomy-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 6px 18px rgba(45, 30, 55, 0.18);
+      backdrop-filter: blur(3px);
+    }
+
+    .bloomy-chip-primary {
+      background: #e46c95;
+      color: #ffffff;
+    }
+
+    .bloomy-chip-secondary {
+      background: #ffffff;
+      color: #4b3a5b;
+      border: 1px solid #e9d7e2;
+    }
+
+    .bloomy-trust {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid #ead8e5;
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: #5b4a69;
+      font-size: 11px;
+      line-height: 1.4;
+      box-shadow: 0 6px 18px rgba(45, 30, 55, 0.12);
+    }
+
+    .bloomy-trust strong {
+      color: #3c2f47;
+    }
+
+    @media (max-width: 640px) {
+      .bloomy-quick-links {
+        right: 10px;
+        left: 10px;
+        bottom: 10px;
+        max-width: none;
+      }
+
+      .bloomy-chip {
+        width: 100%;
+      }
+    }
+  </style>
+  <script id="splash-screen-script">
+    function removeSplashFromWeb() {
+      document.getElementById("splash")?.remove();
+      document.getElementById("splash-branding")?.remove();
+      document.body.style.background = "transparent";
+    }
+  </script>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+</head>
+<body>
+  <picture id="splash">
+      <source srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x, splash/img/light-3x.png 3x, splash/img/light-4x.png 4x" media="(prefers-color-scheme: light)">
+      <source srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x, splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x" media="(prefers-color-scheme: dark)">
+      <img class="center" aria-hidden="true" src="splash/img/light-1x.png" alt="">
+  </picture>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <div class="bloomy-quick-links">
+    <a
+      class="bloomy-chip bloomy-chip-primary"
+      href="https://github.com/FatimaMumtaz86/bloomy/releases/latest/download/app-release.apk"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Download Android APK
+    </a>
+    <a class="bloomy-chip bloomy-chip-secondary" href="privacy-policy.html">
+      Privacy Policy
+    </a>
+    <div class="bloomy-trust">
+      <div><strong>Version:</strong> 1.0.0+1</div>
+      <div><strong>APK SHA1:</strong> 9fe2478497cafe44d968af7992554002e58b440a</div>
+    </div>
+  </div>
+  <script src="flutter_bootstrap.js" async=""></script>
+
+
+</body></html>

@@ -1,0 +1,221 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function listSame(newList, oldList) {
+      return newList.size() == oldList.size()
+             && newList.hasAll(oldList)
+             && oldList.hasAll(newList);
+    }
+
+    function listAddedSelf(newList, oldList) {
+      return newList.size() == oldList.size() + 1
+             && newList.hasAll(oldList)
+             && newList.hasAny([request.auth.uid]);
+    }
+
+    function listRemovedSelf(newList, oldList) {
+      return newList.size() + 1 == oldList.size()
+             && oldList.hasAll(newList)
+             && oldList.hasAny([request.auth.uid]);
+    }
+
+    function isSelfListDelta(newList, oldList) {
+      return listSame(newList, oldList)
+             || listAddedSelf(newList, oldList)
+             || listRemovedSelf(newList, oldList);
+    }
+
+    function isCommentCountDeltaValid() {
+      return request.resource.data.commentCount is int
+             && resource.data.commentCount is int
+             && request.resource.data.commentCount >= 0
+             && request.resource.data.commentCount <= resource.data.commentCount + 1
+             && request.resource.data.commentCount + 1 >= resource.data.commentCount;
+    }
+
+    function isStrictSocialUserUpdate() {
+      return changedKeys().hasOnly([
+               'followerIds',
+               'followingIds',
+               'pendingFollowRequests',
+               'updatedAt'
+             ])
+             && (!changedKeys().hasAny(['followerIds'])
+                 || isSelfListDelta(
+                      request.resource.data.followerIds,
+                      resource.data.followerIds
+                    ))
+             && (!changedKeys().hasAny(['followingIds'])
+                 || isSelfListDelta(
+                      request.resource.data.followingIds,
+                      resource.data.followingIds
+                    ))
+             && (!changedKeys().hasAny(['pendingFollowRequests'])
+                 || isSelfListDelta(
+                      request.resource.data.pendingFollowRequests,
+                      resource.data.pendingFollowRequests
+                    ));
+    }
+
+    function isStrictPostInteractionUpdate() {
+      return changedKeys().hasOnly([
+               'likedByIds',
+               'commentCount',
+               'updatedAt'
+             ])
+             && (!changedKeys().hasAny(['likedByIds'])
+                 || isSelfListDelta(
+                      request.resource.data.likedByIds,
+                      resource.data.likedByIds
+                    ))
+             && (!changedKeys().hasAny(['commentCount'])
+                 || isCommentCountDeltaValid());
+    }
+
+    function isStrictPinInteractionUpdate() {
+      return changedKeys().hasOnly([
+               'likedByIds',
+               'savedByIds',
+               'updatedAt'
+             ])
+             && (!changedKeys().hasAny(['likedByIds'])
+                 || isSelfListDelta(
+                      request.resource.data.likedByIds,
+                      resource.data.likedByIds
+                    ))
+             && (!changedKeys().hasAny(['savedByIds'])
+                 || isSelfListDelta(
+                      request.resource.data.savedByIds,
+                      resource.data.savedByIds
+                    ));
+    }
+
+    function isStrictCommentInteractionUpdate() {
+      return changedKeys().hasOnly(['likedByIds', 'updatedAt'])
+             && (!changedKeys().hasAny(['likedByIds'])
+                 || isSelfListDelta(
+                      request.resource.data.likedByIds,
+                      resource.data.likedByIds
+                    ));
+    }
+
+    function isPostOwner() {
+      return isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function isChatParticipant(chatData) {
+      return isSignedIn()
+             && chatData.participantIds is list
+             && chatData.participantIds.hasAny([request.auth.uid]);
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId)
+                    || (isSignedIn() && isStrictSocialUserUpdate());
+      allow delete: if isOwner(userId);
+
+      match /journal_entries/{entryId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /mood_entries/{entryId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if isPostOwner()
+                    || (isSignedIn() && isStrictPostInteractionUpdate());
+      allow delete: if isPostOwner();
+
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn()
+                      && request.resource.data.userId == request.auth.uid;
+        allow update: if (isSignedIn() && resource.data.userId == request.auth.uid)
+                      || (isSignedIn() && isStrictCommentInteractionUpdate());
+        allow delete: if isSignedIn()
+                      && (
+                        resource.data.userId == request.auth.uid
+                        || get(/databases/$(database)/documents/posts/$(postId)).data.userId == request.auth.uid
+                      );
+      }
+    }
+
+    match /pins/{pinId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update: if (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || (isSignedIn() && isStrictPinInteractionUpdate());
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /boards/{boardId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && resource.data.toUserId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.fromUserId == request.auth.uid;
+      allow update, delete: if isSignedIn()
+                            && (
+                              resource.data.toUserId == request.auth.uid
+                              || resource.data.fromUserId == request.auth.uid
+                            );
+    }
+
+    match /chats/{chatId} {
+      allow read: if isChatParticipant(resource.data);
+      allow create: if isSignedIn()
+                    && request.resource.data.id == chatId
+                    && request.resource.data.participantIds is list
+                    && request.resource.data.participantIds.size() == 2
+                    && request.resource.data.participantIds.hasAny([request.auth.uid])
+                    && request.resource.data.lastMessageSenderId == request.auth.uid;
+      allow update: if isChatParticipant(resource.data)
+                    && changedKeys().hasOnly([
+                      'lastMessageText',
+                      'lastMessageSenderId',
+                      'lastMessageType',
+                      'lastSharedPostId',
+                      'lastSharedPostCaption',
+                      'lastSharedPostImageUrl',
+                      'lastMessageAt',
+                      'updatedAt'
+                    ])
+                    && request.resource.data.participantIds == resource.data.participantIds
+                    && request.resource.data.lastMessageSenderId == request.auth.uid;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isChatParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data);
+        allow create: if isChatParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data)
+                      && request.resource.data.id == messageId
+                      && request.resource.data.chatId == chatId
+                      && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+  }
+}

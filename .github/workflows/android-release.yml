@@ -1,0 +1,59 @@
+name: Android Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Decode Android keystore
+        run: |
+          mkdir -p keys
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > keys/bloomy-release.jks
+
+      - name: Write android signing env
+        run: |
+          echo "ANDROID_KEYSTORE_PATH=../keys/bloomy-release.jks" >> $GITHUB_ENV
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Generate dart define file from secrets
+        run: |
+          mkdir -p config
+          cat > config/dart_defines.ci.json << 'JSON'
+          {
+            "EXTERNAL_IMAGE_HOST": "cloudinary",
+            "CLOUDINARY_CLOUD_NAME": "${{ secrets.CLOUDINARY_CLOUD_NAME }}",
+            "CLOUDINARY_API_KEY": "${{ secrets.CLOUDINARY_API_KEY }}",
+            "CLOUDINARY_SIGN_ENDPOINT": "${{ secrets.CLOUDINARY_SIGN_ENDPOINT }}"
+          }
+          JSON
+
+      - name: Build App Bundle
+        run: flutter build appbundle --release --dart-define-from-file=config/dart_defines.ci.json
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/*.aab
