@@ -57,3 +57,7 @@ ios/Flutter/Signing.xcconfig
 # Local dart define files
 config/dart_defines*.json
 !config/dart_defines.example.json
+
+# Firebase functions dependencies
+functions/node_modules/
+node_modules/
