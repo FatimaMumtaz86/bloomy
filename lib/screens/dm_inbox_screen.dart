@@ -130,6 +130,227 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
     }
   }
 
+  bool _matchesGroupChat(ChatModel chat, UserProvider userProvider) {
+    if (_query.isEmpty) {
+      return true;
+    }
+
+    final names = chat.participantIds
+        .map((id) => userProvider.getUserById(id)?.displayName ?? '')
+        .join(' ')
+        .toLowerCase();
+    final groupName = (chat.groupName ?? '').toLowerCase();
+    final message = chat.lastMessageText.toLowerCase();
+    return '$groupName $names $message'.contains(_query);
+  }
+
+  Future<void> _showCreateGroupSheet(UserModel currentUser) async {
+    final userProvider = context.read<UserProvider>();
+    final chatProvider = context.read<ChatProvider>();
+    final groupNameController = TextEditingController();
+    final searchController = TextEditingController();
+    final selectedUserIds = <String>{};
+    var search = '';
+    var isCreating = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final users = userProvider.users
+                .where((user) => user.id != currentUser.id)
+                .where((user) {
+                  if (search.isEmpty) {
+                    return true;
+                  }
+                  final text =
+                      '${user.displayName} ${user.username}'.toLowerCase();
+                  return text.contains(search);
+                })
+                .toList()
+              ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                16 + MediaQuery.of(sheetContext).viewInsets.bottom,
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textLight.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Create group',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textDark,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: groupNameController,
+                      decoration: const InputDecoration(
+                        hintText: 'Group name',
+                        prefixIcon: Icon(Icons.groups_2_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: searchController,
+                      onChanged: (value) {
+                        setModalState(() => search = value.trim().toLowerCase());
+                      },
+                      decoration: const InputDecoration(
+                        hintText: 'Search people',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 280,
+                      child: users.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No users found',
+                                style: TextStyle(color: AppColors.textMed),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: users.length,
+                              itemBuilder: (_, index) {
+                                final user = users[index];
+                                final isSelected =
+                                    selectedUserIds.contains(user.id);
+                                return CheckboxListTile(
+                                  value: isSelected,
+                                  onChanged: (checked) {
+                                    setModalState(() {
+                                      if (checked == true) {
+                                        selectedUserIds.add(user.id);
+                                      } else {
+                                        selectedUserIds.remove(user.id);
+                                      }
+                                    });
+                                  },
+                                  title: Text(user.displayName),
+                                  subtitle: Text('@${user.username}'),
+                                  controlAffinity:
+                                      ListTileControlAffinity.trailing,
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: isCreating
+                            ? null
+                            : () async {
+                                final groupName =
+                                    groupNameController.text.trim();
+                                if (groupName.isEmpty) {
+                                  ScaffoldMessenger.of(sheetContext)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Enter a group name.'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                if (selectedUserIds.length < 2) {
+                                  ScaffoldMessenger.of(sheetContext)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Select at least 2 people for a group.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setModalState(() => isCreating = true);
+                                try {
+                                  final chatId = await chatProvider.createGroupChat(
+                                    groupName: groupName,
+                                    selectedUserIds: selectedUserIds.toList(),
+                                  );
+                                  if (!sheetContext.mounted) {
+                                    return;
+                                  }
+                                  Navigator.pop(sheetContext);
+                                  await _openChatById(chatId);
+                                } catch (e) {
+                                  if (!sheetContext.mounted) {
+                                    return;
+                                  }
+                                  ScaffoldMessenger.of(sheetContext)
+                                      .showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('Could not create group: $e'),
+                                    ),
+                                  );
+                                } finally {
+                                  if (sheetContext.mounted) {
+                                    setModalState(() => isCreating = false);
+                                  }
+                                }
+                              },
+                        icon: isCreating
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor:
+                                      AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Icon(Icons.group_add_outlined),
+                        label: Text(
+                          isCreating ? 'Creating group...' : 'Create group',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    groupNameController.dispose();
+    searchController.dispose();
+  }
+
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) {
@@ -162,14 +383,15 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
     }
 
     final chatByOtherUserId = <String, ChatModel>{};
-    for (final chat in chatProvider.chats) {
+    for (final chat in chatProvider.chats.where((chat) => !chatProvider.isGroupChat(chat))) {
       final otherUserId = chatProvider.otherParticipantId(chat);
       if (otherUserId != null && otherUserId.isNotEmpty) {
         chatByOtherUserId[otherUserId] = chat;
       }
     }
 
-    final filteredChats = chatProvider.chats.where((chat) {
+    final filteredDirectChats =
+        chatProvider.chats.where((chat) => !chatProvider.isGroupChat(chat)).where((chat) {
       final otherUserId = chatProvider.otherParticipantId(chat);
       if (otherUserId == null || otherUserId.isEmpty) {
         return false;
@@ -181,6 +403,11 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
       }
 
       return _matchesUser(otherUser);
+    }).toList();
+
+    final filteredGroupChats =
+        chatProvider.chats.where(chatProvider.isGroupChat).where((chat) {
+      return _matchesGroupChat(chat, userProvider);
     }).toList();
 
     final users = userProvider.users
@@ -202,6 +429,11 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
         title: const Text('Messages'),
         backgroundColor: AppColors.cream,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.group_add_outlined, color: AppColors.textDark),
+            tooltip: 'Create group',
+            onPressed: () => _showCreateGroupSheet(currentUser),
+          ),
           if (chatProvider.unreadCount > 0)
             TextButton(
               onPressed: () => context.read<ChatProvider>().markAllAsRead(),
@@ -249,18 +481,83 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
                     children: [
-                      if (filteredChats.isNotEmpty)
+                      if (filteredGroupChats.isNotEmpty)
                         const Padding(
                           padding: EdgeInsets.only(bottom: 8),
                           child: Text(
-                            'Inbox',
+                            'Groups',
                             style: TextStyle(
                               fontWeight: FontWeight.w700,
                               color: AppColors.textMed,
                             ),
                           ),
                         ),
-                      ...filteredChats.map((chat) {
+                      ...filteredGroupChats.map((chat) {
+                        final memberCount = chat.participantIds.length;
+                        final isUnread = chatProvider.isChatUnreadById(chat.id);
+                        final groupTitle =
+                            (chat.groupName ?? '').trim().isNotEmpty
+                                ? chat.groupName!.trim()
+                                : 'Group chat';
+
+                        return Card(
+                          color: AppColors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ListTile(
+                            onTap: () => _openChatById(chat.id),
+                            tileColor:
+                                isUnread ? AppColors.softPink.withValues(alpha: 0.18) : null,
+                            leading: const CircleAvatar(
+                              backgroundColor: AppColors.lavenderLight,
+                              child: Icon(Icons.groups_2_rounded,
+                                  color: AppColors.deepPink),
+                            ),
+                            title: Text(groupTitle),
+                            subtitle: Text(
+                              '$memberCount members · ${chat.lastMessageText}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _timeAgo(chat.lastMessageAt),
+                                  style: const TextStyle(
+                                    color: AppColors.textLight,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                if (isUnread)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 8),
+                                    width: 9,
+                                    height: 9,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                      if (filteredDirectChats.isNotEmpty)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12, bottom: 8),
+                          child: Text(
+                            'Direct messages',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textMed,
+                            ),
+                          ),
+                        ),
+                      ...filteredDirectChats.map((chat) {
                         final otherUserId = chatProvider.otherParticipantId(chat);
                         final otherUser = otherUserId == null
                             ? null
@@ -413,7 +710,9 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
                           ),
                         );
                       }),
-                      if (filteredChats.isEmpty && usersToShow.isEmpty)
+                      if (filteredGroupChats.isEmpty &&
+                          filteredDirectChats.isEmpty &&
+                          usersToShow.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/screenshot_security_service.dart';
 import '../utils/search_utils.dart';
 
 enum WebImageMode { fit, fill }
@@ -47,6 +48,37 @@ class MediaLayoutProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKey, _mode.name);
+  }
+}
+
+class ScreenSecurityProvider extends ChangeNotifier {
+  static const String _prefKey = 'prevent_screenshots';
+
+  bool _preventScreenshots = false;
+  bool _isLoaded = false;
+
+  bool get preventScreenshots => _preventScreenshots;
+
+  Future<void> init() async {
+    if (_isLoaded) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    _preventScreenshots = prefs.getBool(_prefKey) ?? false;
+    _isLoaded = true;
+
+    await ScreenshotSecurityService.setProtectionEnabled(_preventScreenshots);
+    notifyListeners();
+  }
+
+  Future<void> setPreventScreenshots(bool enabled) async {
+    _preventScreenshots = enabled;
+    notifyListeners();
+
+    await ScreenshotSecurityService.setProtectionEnabled(enabled);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKey, enabled);
   }
 }
 
@@ -789,6 +821,25 @@ class PostProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       throw Exception('Failed to delete post: $e');
+    }
+  }
+
+  Future<void> editPost({
+    required String postId,
+    required String caption,
+    List<String>? tags,
+    PostVisibility? visibility,
+  }) async {
+    try {
+      await _firestoreService.updatePost(postId, {
+        'caption': caption.trim(),
+        if (tags != null) 'tags': tags,
+        if (visibility != null)
+          'visibility': visibility.toString().split('.').last,
+      });
+      await _refreshPost(postId);
+    } catch (e) {
+      throw Exception('Failed to edit post: $e');
     }
   }
 
@@ -1683,7 +1734,15 @@ class ChatProvider extends ChangeNotifier {
     return targetUser.isPublic || targetUser.followerIds.contains(currentUserId);
   }
 
+  bool isGroupChat(ChatModel chat) {
+    return chat.isGroup;
+  }
+
   String? otherParticipantId(ChatModel chat) {
+    if (isGroupChat(chat)) {
+      return null;
+    }
+
     for (final participantId in chat.participantIds) {
       if (participantId != _activeUserId) {
         return participantId;
@@ -1727,6 +1786,24 @@ class ChatProvider extends ChangeNotifier {
     final chatId = await _firestoreService.ensureDirectChat(
       currentUserId: currentUserId,
       otherUserId: otherUserId,
+    );
+    await openChat(chatId);
+    return chatId;
+  }
+
+  Future<String> createGroupChat({
+    required String groupName,
+    required List<String> selectedUserIds,
+  }) async {
+    final currentUserId = _activeUserId;
+    if (currentUserId == null || currentUserId.isEmpty) {
+      throw Exception('Chat provider is not initialized.');
+    }
+
+    final chatId = await _firestoreService.createGroupChat(
+      currentUserId: currentUserId,
+      groupName: groupName,
+      participantIds: selectedUserIds,
     );
     await openChat(chatId);
     return chatId;

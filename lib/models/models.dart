@@ -549,6 +549,7 @@ enum ChatMessageType { text, sharedPost }
 class ChatModel {
   final String id;
   final List<String> participantIds;
+  final String? groupName;
   final String lastMessageText;
   final String? lastMessageSenderId;
   final ChatMessageType lastMessageType;
@@ -561,6 +562,7 @@ class ChatModel {
   ChatModel({
     required this.id,
     required this.participantIds,
+    this.groupName,
     required this.lastMessageText,
     this.lastMessageSenderId,
     this.lastMessageType = ChatMessageType.text,
@@ -571,9 +573,14 @@ class ChatModel {
     required this.createdAt,
   });
 
+  bool get isGroup =>
+      participantIds.length > 2 ||
+      (groupName != null && groupName!.trim().isNotEmpty);
+
   Map<String, dynamic> toMap() => {
     'id': id,
     'participantIds': participantIds,
+    'groupName': groupName,
     'lastMessageText': lastMessageText,
     'lastMessageSenderId': lastMessageSenderId,
     'lastMessageType': lastMessageType.toString().split('.').last,
@@ -597,6 +604,7 @@ class ChatModel {
     return ChatModel(
       id: m['id'],
       participantIds: List<String>.from(m['participantIds'] ?? []),
+      groupName: m['groupName'],
       lastMessageText: m['lastMessageText'] ?? '',
       lastMessageSenderId: m['lastMessageSenderId'],
       lastMessageType: lastMessageType,

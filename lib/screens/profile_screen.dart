@@ -10,7 +10,9 @@ import '../navigation/app_router.dart';
 import 'pin_detail_screen.dart' as pin_detail;
 import '../theme/app_theme.dart';
 import '../utils/soft_symbols.dart';
+import '../utils/image_adjust_utils.dart';
 import '../widgets/app_image.dart';
+import '../widgets/edit_post_sheet.dart';
 import '../widgets/save_post_collection_sheet.dart';
 
 bool _isRemoteAvatarUrl(String value) {
@@ -90,34 +92,115 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  Future<void> _changeAvatar() async {
-    try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery);
-      if (image != null && mounted) {
-        final authProvider = context.read<AuthProvider>();
-        Uint8List? avatarBytes;
-        String? avatarFileName;
-        if (kIsWeb) {
-          avatarBytes = await image.readAsBytes();
-          avatarFileName = image.name;
-        }
-
-        await authProvider.updateProfile(
-          avatarUrl: image.path,
-          avatarBytes: avatarBytes,
-          avatarFileName: avatarFileName,
+  Future<void> _previewCurrentAvatar(UserModel user) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildProfileAvatar(
+                  displayName: user.displayName,
+                  avatarUrl: user.avatarUrl,
+                  radius: 62,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  user.displayName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
         );
-        await context.read<UserProvider>().refresh();
+      },
+    );
+  }
 
-        if (!mounted) {
-          return;
-        }
+  Future<bool> _confirmAvatarPreview(AdjustedImageSelection image) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final previewProvider = kIsWeb && image.uploadBytes != null
+            ? MemoryImage(image.uploadBytes!)
+            : FileImage(File(image.file.path));
 
-        if (authProvider.error != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authProvider.error!)),
-          );
-        }
+        return AlertDialog(
+          title: const Text('Use this profile photo?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 52,
+                backgroundImage: previewProvider,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'You can adjust again if needed.',
+                style: TextStyle(color: AppColors.textMed),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Adjust again'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Use photo'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return accepted == true;
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    try {
+      final image = await pickAndAdjustImage(
+        context: context,
+        picker: _imagePicker,
+        target: MediaAdjustTarget.avatar,
+      );
+
+      if (image == null || !mounted) {
+        return;
+      }
+
+      final shouldUse = await _confirmAvatarPreview(image);
+      if (!shouldUse || !mounted) {
+        return;
+      }
+
+      final authProvider = context.read<AuthProvider>();
+      await authProvider.updateProfile(
+        avatarUrl: image.file.path,
+        avatarBytes: image.uploadBytes,
+        avatarFileName: image.fileName,
+      );
+      await context.read<UserProvider>().refresh();
+
+      if (!mounted) {
+        return;
+      }
+
+      if (authProvider.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(authProvider.error!)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile photo updated.')),
+        );
       }
     } catch (e) {
       if (!mounted) {
@@ -127,6 +210,71 @@ class _ProfileScreenState extends State<ProfileScreen>
         SnackBar(content: Text('Failed to update profile photo: $e')),
       );
     }
+  }
+
+  Future<void> _removeAvatar() async {
+    final authProvider = context.read<AuthProvider>();
+    await authProvider.updateProfile(avatarUrl: '');
+    await context.read<UserProvider>().refresh();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (authProvider.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(authProvider.error!)),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Profile photo removed.')),
+    );
+  }
+
+  Future<void> _showAvatarActions(UserModel user) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.visibility_outlined),
+                title: const Text('Preview profile photo'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _previewCurrentAvatar(user);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.add_a_photo_outlined),
+                title: const Text('Upload and adjust photo'),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickAndUploadAvatar();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline_rounded,
+                    color: Colors.red),
+                title: const Text('Remove profile photo'),
+                textColor: Colors.red,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _removeAvatar();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -169,7 +317,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                           Row(
                             children: [
                               GestureDetector(
-                                onTap: _changeAvatar,
+                                onTap: () => _showAvatarActions(user),
                                 child: Stack(
                                   children: [
                                     _buildProfileAvatar(
@@ -1517,6 +1665,7 @@ class _SettingsModal extends StatefulWidget {
 
 class _SettingsModalState extends State<_SettingsModal> {
   late bool _isPublic;
+  late bool _preventScreenshots;
   final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _usernameCtrl = TextEditingController();
   final TextEditingController _bioCtrl = TextEditingController();
@@ -1529,6 +1678,8 @@ class _SettingsModalState extends State<_SettingsModal> {
     super.initState();
     final user = context.read<AuthProvider>().user;
     _isPublic = user?.isPublic ?? true;
+    _preventScreenshots =
+      context.read<ScreenSecurityProvider>().preventScreenshots;
     _nameCtrl.text = user?.displayName ?? '';
     _usernameCtrl.text = user?.username ?? '';
     _bioCtrl.text = user?.bio ?? '';
@@ -1739,6 +1890,33 @@ class _SettingsModalState extends State<_SettingsModal> {
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             ),
+            ListTile(
+              leading: const Icon(Icons.shield_outlined, color: AppColors.textMed),
+              title: const Text(
+                'Prevent screenshots',
+                style: TextStyle(
+                  color: AppColors.textDark,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              subtitle: Text(
+                kIsWeb
+                    ? 'Available on Android app builds.'
+                    : 'Blocks screenshots/screen recording on Android.',
+                style: const TextStyle(fontSize: 12),
+              ),
+              trailing: Switch(
+                value: _preventScreenshots,
+                onChanged: (v) async {
+                  setState(() => _preventScreenshots = v);
+                  await context
+                      .read<ScreenSecurityProvider>()
+                      .setPreventScreenshots(v);
+                },
+                activeThumbColor: AppColors.deepPink,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            ),
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1876,6 +2054,20 @@ class _PostCard extends StatelessWidget {
     }
   }
 
+  Future<void> _editPost(
+    BuildContext context,
+    PostModel post,
+  ) async {
+    final didSave = await showEditPostSheet(context: context, post: post);
+    if (didSave != true || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Post updated.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthProvider>();
@@ -1975,11 +2167,18 @@ class _PostCard extends StatelessWidget {
                       if (isOwnPost)
                         PopupMenuButton<String>(
                           onSelected: (value) {
+                            if (value == 'edit') {
+                              _editPost(context, post);
+                            }
                             if (value == 'delete') {
                               _confirmDeletePost(context, postProv, post.id);
                             }
                           },
                           itemBuilder: (_) => const [
+                            PopupMenuItem<String>(
+                              value: 'edit',
+                              child: Text('Edit post'),
+                            ),
                             PopupMenuItem<String>(
                               value: 'delete',
                               child: Text('Delete post'),

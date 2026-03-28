@@ -9,6 +9,7 @@ import '../widgets/bloomy_logo.dart';
 import '../widgets/app_image.dart';
 import '../widgets/comment_sheet.dart';
 import '../widgets/create_post_sheet.dart';
+import '../widgets/edit_post_sheet.dart';
 import '../widgets/save_post_collection_sheet.dart';
 import '../widgets/share_to_dm_sheet.dart';
 import '../utils/hashtag_utils.dart';
@@ -392,6 +393,20 @@ class _PostCard extends StatelessWidget {
     }
   }
 
+  Future<void> _editPost(
+    BuildContext context,
+    PostModel post,
+  ) async {
+    final didSave = await showEditPostSheet(context: context, post: post);
+    if (didSave != true || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Post updated.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.read<AuthProvider>();
@@ -465,11 +480,18 @@ class _PostCard extends StatelessWidget {
                 if (isOwnPost)
                   PopupMenuButton<String>(
                     onSelected: (value) {
+                      if (value == 'edit') {
+                        _editPost(context, post);
+                      }
                       if (value == 'delete') {
                         _confirmDeletePost(context, postProv, post.id);
                       }
                     },
                     itemBuilder: (_) => const [
+                      PopupMenuItem<String>(
+                        value: 'edit',
+                        child: Text('Edit post'),
+                      ),
                       PopupMenuItem<String>(
                         value: 'delete',
                         child: Text('Delete post'),

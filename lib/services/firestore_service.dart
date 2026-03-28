@@ -801,6 +801,7 @@ class FirestoreService {
       final createPayload = {
         'id': chatId,
         'participantIds': participants,
+        'groupName': null,
         'lastMessageText': 'Start chatting',
         'lastMessageSenderId': currentUserId,
         'lastMessageType': ChatMessageType.text.toString().split('.').last,
@@ -864,6 +865,49 @@ class FirestoreService {
         );
       }
       throw Exception('Failed to ensure direct chat: $e');
+    }
+  }
+
+  Future<String> createGroupChat({
+    required String currentUserId,
+    required String groupName,
+    required List<String> participantIds,
+  }) async {
+    try {
+      final trimmedName = groupName.trim();
+      if (trimmedName.isEmpty) {
+        throw Exception('Group name is required.');
+      }
+
+      final resolvedParticipants = <String>{
+        currentUserId,
+        ...participantIds.where((id) => id.trim().isNotEmpty),
+      }.toList()
+        ..sort();
+
+      if (resolvedParticipants.length < 3) {
+        throw Exception('Select at least 2 people to create a group.');
+      }
+
+      final chatRef = _chats.doc();
+      await chatRef.set({
+        'id': chatRef.id,
+        'participantIds': resolvedParticipants,
+        'groupName': trimmedName,
+        'lastMessageText': 'Group created',
+        'lastMessageSenderId': currentUserId,
+        'lastMessageType': ChatMessageType.text.toString().split('.').last,
+        'lastSharedPostId': null,
+        'lastSharedPostCaption': null,
+        'lastSharedPostImageUrl': null,
+        'lastMessageAt': Timestamp.now(),
+        'createdAt': Timestamp.now(),
+        'updatedAt': Timestamp.now(),
+      });
+
+      return chatRef.id;
+    } catch (e) {
+      throw Exception('Failed to create group chat: $e');
     }
   }
 
@@ -1380,6 +1424,7 @@ class FirestoreService {
     return ChatModel(
       id: (data['id'] as String?) ?? doc.id,
       participantIds: List<String>.from(data['participantIds'] ?? <String>[]),
+      groupName: data['groupName'] as String?,
       lastMessageText: data['lastMessageText'] as String? ?? '',
       lastMessageSenderId: data['lastMessageSenderId'] as String?,
       lastMessageType: lastMessageType,

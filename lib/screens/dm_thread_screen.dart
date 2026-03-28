@@ -227,16 +227,23 @@ class _DmThreadScreenState extends State<DmThreadScreen> {
 
     final chat = _findChat(chatProvider);
     final messages = chatProvider.messagesForChat(widget.chatId);
+    final isGroupChat = chat != null && chatProvider.isGroupChat(chat);
 
-    String? otherUserId =
-        chat == null ? null : chatProvider.otherParticipantId(chat);
-    otherUserId ??= _findOtherUserIdFromMessages(
-      messages: messages,
-      currentUserId: currentUser.id,
-    );
-    otherUserId ??= _threadUserId;
+    String? otherUserId;
+    if (!isGroupChat) {
+      otherUserId = chat == null ? null : chatProvider.otherParticipantId(chat);
+      otherUserId ??= _findOtherUserIdFromMessages(
+        messages: messages,
+        currentUserId: currentUser.id,
+      );
+      otherUserId ??= _threadUserId;
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (isGroupChat) {
+        return;
+      }
+
       _ensureThreadUser(
         otherUserId: otherUserId,
         userProvider: userProvider,
@@ -254,13 +261,20 @@ class _DmThreadScreenState extends State<DmThreadScreen> {
         ? _threadUser
         : (userProvider.getUserById(otherUserId) ??
             (_threadUserId == otherUserId ? _threadUser : null));
-    final profileUserId = otherUserId;
+    final profileUserId = isGroupChat ? null : otherUserId;
 
-    final title = otherUser?.displayName.isNotEmpty == true
+    final title = isGroupChat
+      ? (((chat?.groupName ?? '').trim().isNotEmpty)
+        ? chat!.groupName!.trim()
+        : 'Group chat')
+      : (otherUser?.displayName.isNotEmpty == true
         ? otherUser!.displayName
         : (otherUser?.username ??
-            (_isLoadingThreadUser ? 'Loading profile' : 'Direct message'));
+          (_isLoadingThreadUser ? 'Loading profile' : 'Direct message')));
     final otherAvatar = resolveAvatarImage(otherUser?.avatarUrl);
+    final groupSubtitle = isGroupChat
+      ? '${chat?.participantIds.length ?? 0} members'
+      : null;
 
     final hasMoreMessages = chatProvider.hasMoreMessages(widget.chatId);
     final isLoadingOlder = chatProvider.isLoadingOlderMessages(widget.chatId);
@@ -293,22 +307,44 @@ class _DmThreadScreenState extends State<DmThreadScreen> {
               CircleAvatar(
                 radius: 16,
                 backgroundColor: AppColors.lavenderLight,
-                backgroundImage: otherAvatar,
-                child: otherAvatar == null
-                    ? Text(
-                        title.isNotEmpty ? title.substring(0, 1).toUpperCase() : '?',
-                        style: const TextStyle(
-                          color: AppColors.deepPink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                backgroundImage: isGroupChat ? null : otherAvatar,
+                child: isGroupChat
+                    ? const Icon(
+                        Icons.groups_2_rounded,
+                        color: AppColors.deepPink,
+                        size: 18,
                       )
-                    : null,
+                    : otherAvatar == null
+                        ? Text(
+                            title.isNotEmpty
+                                ? title.substring(0, 1).toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              color: AppColors.deepPink,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          )
+                        : null,
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  title,
-                  overflow: TextOverflow.ellipsis,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (groupSubtitle != null)
+                      Text(
+                        groupSubtitle,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

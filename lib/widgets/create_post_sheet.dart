@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
-import 'dart:typed_data';
 import '../providers/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/soft_symbols.dart';
+import '../utils/image_adjust_utils.dart';
 
 class CreatePostSheet extends StatefulWidget {
   final String? preSelectedDestination; // 'fyp', 'pin', 'anon'
@@ -30,7 +29,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
   final _captionCtrl = TextEditingController();
   final _titleCtrl = TextEditingController();
   final _tagsCtrl = TextEditingController();
-  XFile? _selectedImage;
+  AdjustedImageSelection? _selectedImage;
 
   // Pin-specific
   String? _selectedBoardId;
@@ -70,12 +69,36 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
 
   Future<void> _pickImage() async {
     try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+      final image = await pickAndAdjustImage(
+        context: context,
+        picker: _imagePicker,
+        target: MediaAdjustTarget.postOrPin,
+      );
       if (image != null) {
         setState(() => _selectedImage = image);
       }
     } catch (e) {
       _showError('Error picking image: $e');
+    }
+  }
+
+  Future<void> _adjustImage() async {
+    final selected = _selectedImage;
+    if (selected == null) {
+      return;
+    }
+
+    try {
+      final adjusted = await adjustPickedImage(
+        context: context,
+        pickedFile: selected.file,
+        target: MediaAdjustTarget.postOrPin,
+      );
+      if (adjusted != null) {
+        setState(() => _selectedImage = adjusted);
+      }
+    } catch (e) {
+      _showError('Error adjusting image: $e');
     }
   }
 
@@ -120,12 +143,8 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
     setState(() => _isLoading = true);
 
     try {
-      Uint8List? selectedImageBytes;
-      String? selectedImageName;
-      if (_selectedImage != null && kIsWeb) {
-        selectedImageBytes = await _selectedImage!.readAsBytes();
-        selectedImageName = _selectedImage!.name;
-      }
+      final selectedImageBytes = _selectedImage?.uploadBytes;
+      final selectedImageName = _selectedImage?.fileName;
 
       final tags =
           _tagsCtrl.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
@@ -135,7 +154,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         await context.read<PostProvider>().createPost(
           userId: user.id,
           caption: _captionCtrl.text.trim(),
-          imageUrl: _selectedImage?.path,
+          imageUrl: _selectedImage?.file.path,
           imageBytes: selectedImageBytes,
           imageFileName: selectedImageName,
           isAnonymous: false,
@@ -155,7 +174,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
         await context.read<PostProvider>().createPost(
           userId: user.id,
           caption: _captionCtrl.text.trim(),
-          imageUrl: _selectedImage?.path,
+          imageUrl: _selectedImage?.file.path,
           imageBytes: selectedImageBytes,
           imageFileName: selectedImageName,
           isAnonymous: true,
@@ -173,7 +192,7 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
           userId: user.id,
           title: _titleCtrl.text.trim(),
           boardId: _selectedBoardId!,
-          imageUrl: _selectedImage?.path,
+          imageUrl: _selectedImage?.file.path,
           imageBytes: selectedImageBytes,
           imageFileName: selectedImageName,
           description: _captionCtrl.text.trim(),
@@ -321,14 +340,14 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
                                   borderRadius: BorderRadius.circular(12),
                                   child: kIsWeb
                                       ? Image.network(
-                                          _selectedImage!.path,
+                                          _selectedImage!.file.path,
                                           fit: BoxFit.cover,
                                           width: double.infinity,
                                           errorBuilder: (_, __, ___) =>
                                               const SizedBox.shrink(),
                                         )
                                       : Image.file(
-                                          File(_selectedImage!.path),
+                                          File(_selectedImage!.file.path),
                                           fit: BoxFit.cover,
                                           width: double.infinity,
                                         ),
@@ -341,6 +360,26 @@ class _CreatePostSheetState extends State<CreatePostSheet> {
                                 Icons.check_circle_rounded,
                                 color: Colors.white,
                                 size: 32,
+                              ),
+                            ),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Material(
+                                color: Colors.black45,
+                                borderRadius: BorderRadius.circular(18),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(18),
+                                  onTap: _isLoading ? null : _adjustImage,
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(6),
+                                    child: Icon(
+                                      Icons.tune_rounded,
+                                      color: Colors.white,
+                                      size: 18,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ],

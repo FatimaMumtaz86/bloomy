@@ -190,7 +190,8 @@ service cloud.firestore {
       allow create: if isSignedIn()
                     && request.resource.data.id == chatId
                     && request.resource.data.participantIds is list
-                    && request.resource.data.participantIds.size() == 2
+                    && request.resource.data.participantIds.size() >= 2
+                    && request.resource.data.participantIds.size() <= 25
                     && request.resource.data.participantIds.hasAny([request.auth.uid])
                     && request.resource.data.lastMessageSenderId == request.auth.uid;
       allow update: if isChatParticipant(resource.data)

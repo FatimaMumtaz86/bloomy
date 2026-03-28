@@ -10,6 +10,7 @@ import '../utils/avatar_utils.dart';
 import '../utils/hashtag_utils.dart';
 import '../widgets/app_image.dart';
 import '../widgets/comment_sheet.dart';
+import '../widgets/edit_post_sheet.dart';
 import '../widgets/save_post_collection_sheet.dart';
 import 'profile_screen.dart';
 
@@ -109,6 +110,23 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  Future<void> _editPost() async {
+    final post = _post;
+    if (post == null) {
+      return;
+    }
+
+    final didSave = await showEditPostSheet(context: context, post: post);
+    if (didSave != true || !mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Post updated.')),
+    );
+    await _loadPost();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -196,6 +214,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               TextStyle(color: AppColors.textDark, fontWeight: FontWeight.w700),
         ),
         actions: [
+          if (isOwnPost)
+            IconButton(
+              onPressed: _editPost,
+              icon: const Icon(Icons.edit_outlined, color: AppColors.deepPink),
+              tooltip: 'Edit post',
+            ),
           if (isOwnPost)
             IconButton(
               onPressed: _deletePost,

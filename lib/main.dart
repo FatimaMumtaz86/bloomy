@@ -142,6 +142,7 @@ class _BloomyAppState extends State<BloomyApp> {
         ChangeNotifierProvider(create: (_) => CommentProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => MediaLayoutProvider()..init()),
+        ChangeNotifierProvider(create: (_) => ScreenSecurityProvider()..init()),
       ],
       child: Consumer<AuthProvider>(
         builder: (context, auth, _) {

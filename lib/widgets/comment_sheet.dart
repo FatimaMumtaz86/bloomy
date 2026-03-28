@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../services/translation_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/soft_symbols.dart';
 import '../screens/profile_screen.dart';
@@ -34,10 +35,14 @@ class CommentSheet extends StatefulWidget {
 class _CommentSheetState extends State<CommentSheet> {
   final _commentCtrl = TextEditingController();
   final _commentFocusNode = FocusNode();
+  final TranslationService _translationService = TranslationService();
   bool _isAnonymous = false;
   bool _isPosting = false;
   CommentModel? _replyingTo;
   final Set<String> _expandedReplyThreads = <String>{};
+  final Map<String, String> _translatedTextByCommentId = <String, String>{};
+  final Set<String> _translatingCommentIds = <String>{};
+  final Set<String> _showOriginalCommentIds = <String>{};
 
   @override
   void initState() {
@@ -170,6 +175,62 @@ class _CommentSheetState extends State<CommentSheet> {
     }
   }
 
+  Future<void> _toggleTranslate(CommentModel comment) async {
+    if (_translatedTextByCommentId.containsKey(comment.id)) {
+      setState(() {
+        if (_showOriginalCommentIds.contains(comment.id)) {
+          _showOriginalCommentIds.remove(comment.id);
+        } else {
+          _showOriginalCommentIds.add(comment.id);
+        }
+      });
+      return;
+    }
+
+    if (_translatingCommentIds.contains(comment.id)) {
+      return;
+    }
+
+    final localeCode = Localizations.localeOf(context).languageCode;
+    setState(() => _translatingCommentIds.add(comment.id));
+
+    try {
+      final result = await _translationService.translate(
+        text: comment.text,
+        targetLanguage: localeCode,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (result == null ||
+          result.translatedText.trim().toLowerCase() ==
+              comment.text.trim().toLowerCase()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comment is already in your language.')),
+        );
+        return;
+      }
+
+      setState(() {
+        _translatedTextByCommentId[comment.id] = result.translatedText;
+        _showOriginalCommentIds.remove(comment.id);
+      });
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Translation failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _translatingCommentIds.remove(comment.id));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final comments = context.watch<CommentProvider>().getCommentsForPost(widget.post.id);
@@ -279,6 +340,13 @@ class _CommentSheetState extends State<CommentSheet> {
                             comment,
                             _safeReplyUsername(comment),
                           ),
+                          translatedText:
+                              _translatedTextByCommentId[comment.id],
+                          showOriginal:
+                              _showOriginalCommentIds.contains(comment.id),
+                          isTranslating:
+                              _translatingCommentIds.contains(comment.id),
+                          onTranslate: () => _toggleTranslate(comment),
                         ),
                         if (replies.isNotEmpty)
                           Padding(
@@ -328,6 +396,13 @@ class _CommentSheetState extends State<CommentSheet> {
                                 reply,
                                 _safeReplyUsername(reply),
                               ),
+                              translatedText:
+                                  _translatedTextByCommentId[reply.id],
+                              showOriginal:
+                                  _showOriginalCommentIds.contains(reply.id),
+                              isTranslating:
+                                  _translatingCommentIds.contains(reply.id),
+                              onTranslate: () => _toggleTranslate(reply),
                             ),
                           ),
                       ],
@@ -446,7 +521,19 @@ class _CommentSheetState extends State<CommentSheet> {
 class _CommentTile extends StatelessWidget {
   final CommentModel comment;
   final VoidCallback? onReply;
-  const _CommentTile({required this.comment, this.onReply});
+  final String? translatedText;
+  final bool showOriginal;
+  final bool isTranslating;
+  final VoidCallback? onTranslate;
+
+  const _CommentTile({
+    required this.comment,
+    this.onReply,
+    this.translatedText,
+    this.showOriginal = false,
+    this.isTranslating = false,
+    this.onTranslate,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +546,13 @@ class _CommentTile extends StatelessWidget {
     final avatarImage = comment.isAnonymous ? null : _resolveAvatarImage(user?.avatarUrl);
     final isReply =
         comment.parentCommentId != null && comment.parentCommentId!.isNotEmpty;
+    final hasTranslation = translatedText != null && translatedText!.trim().isNotEmpty;
+    final bodyText = hasTranslation && !showOriginal ? translatedText! : comment.text;
+    final translateLabel = isTranslating
+      ? 'Translating...'
+      : hasTranslation
+        ? (showOriginal ? 'Show translated' : 'Show original')
+        : 'Translate';
 
     return Padding(
       padding: EdgeInsets.fromLTRB(isReply ? 36 : 16, 8, 16, 8),
@@ -512,9 +606,21 @@ class _CommentTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          comment.text,
+                          bodyText,
                           style: const TextStyle(color: AppColors.textDark, fontSize: 13),
                         ),
+                        if (hasTranslation && !showOriginal)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4),
+                            child: Text(
+                              'Translated',
+                              style: TextStyle(
+                                color: AppColors.textLight,
+                                fontSize: 10,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 6),
                         GestureDetector(
                           onTap: () {
@@ -544,6 +650,20 @@ class _CommentTile extends StatelessWidget {
                                   'Reply',
                                   style: TextStyle(
                                     color: AppColors.textMed,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              GestureDetector(
+                                onTap: onTranslate,
+                                child: Text(
+                                  translateLabel,
+                                  style: TextStyle(
+                                    color: isTranslating
+                                        ? AppColors.textLight
+                                        : AppColors.lavenderDeep,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                   ),
