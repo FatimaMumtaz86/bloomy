@@ -94,9 +94,11 @@
       z-index: 9999;
       display: flex;
       flex-direction: column;
+      align-items: flex-end;
       gap: 8px;
       max-width: 300px;
       font-family: "Segoe UI", Tahoma, sans-serif;
+      pointer-events: none;
     }
 
     .bloomy-chip {
@@ -110,6 +112,7 @@
       text-decoration: none;
       box-shadow: 0 6px 18px rgba(45, 30, 55, 0.18);
       backdrop-filter: blur(3px);
+      pointer-events: auto;
     }
 
     .bloomy-chip-primary {
@@ -132,6 +135,7 @@
       font-size: 11px;
       line-height: 1.4;
       box-shadow: 0 6px 18px rgba(45, 30, 55, 0.12);
+      pointer-events: auto;
     }
 
     .bloomy-trust strong {
@@ -141,13 +145,20 @@
     @media (max-width: 640px) {
       .bloomy-quick-links {
         right: 10px;
-        left: 10px;
-        bottom: 10px;
-        max-width: none;
+        top: 10px;
+        bottom: auto;
+        left: auto;
+        max-width: 210px;
       }
 
       .bloomy-chip {
-        width: 100%;
+        width: auto;
+        font-size: 12px;
+        padding: 8px 12px;
+      }
+
+      .bloomy-trust {
+        display: none;
       }
     }
   </style>
@@ -183,7 +194,7 @@
     >
       Download Android APK
     </a>
-    <a class="bloomy-chip bloomy-chip-secondary" href="privacy-policy.html">
+    <a class="bloomy-chip bloomy-chip-secondary" href="/privacy-policy.html">
       Privacy Policy
     </a>
     <div class="bloomy-trust">
