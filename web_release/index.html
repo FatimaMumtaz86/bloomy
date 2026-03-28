@@ -12,7 +12,7 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-  <base href="/">
+  <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
@@ -87,78 +87,133 @@
       right: 0;
     }
 
-    .bloomy-quick-links {
+    .bloomy-entry-overlay {
       position: fixed;
-      right: 16px;
-      bottom: 16px;
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
-      max-width: 300px;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(228, 108, 149, 0.2), transparent 46%),
+        radial-gradient(circle at 85% 12%, rgba(136, 104, 186, 0.18), transparent 44%),
+        rgba(35, 24, 41, 0.58);
       font-family: "Segoe UI", Tahoma, sans-serif;
-      pointer-events: none;
     }
 
-    .bloomy-chip {
+    .bloomy-entry-overlay.visible {
+      display: flex;
+    }
+
+    .bloomy-entry-card {
+      width: min(520px, 100%);
+      border-radius: 24px;
+      background: #fff9fd;
+      border: 1px solid #efdeea;
+      box-shadow: 0 22px 52px rgba(39, 25, 46, 0.36);
+      padding: 22px;
+      color: #3f2d49;
+    }
+
+    .bloomy-entry-badge {
+      display: inline-block;
+      border-radius: 999px;
+      background: #f7d9e6;
+      color: #7a3c5e;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      margin-bottom: 10px;
+    }
+
+    .bloomy-entry-title {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+      color: #2f2138;
+    }
+
+    .bloomy-entry-subtitle {
+      margin: 10px 0 18px;
+      color: #6a5874;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .bloomy-entry-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bloomy-entry-btn {
+      border: 0;
+      border-radius: 14px;
+      min-height: 46px;
+      padding: 12px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: 999px;
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      text-decoration: none;
-      box-shadow: 0 6px 18px rgba(45, 30, 55, 0.18);
-      backdrop-filter: blur(3px);
-      pointer-events: auto;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
     }
 
-    .bloomy-chip-primary {
-      background: #e46c95;
+    .bloomy-entry-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(30, 21, 35, 0.18);
+    }
+
+    .bloomy-entry-btn-android {
+      background: linear-gradient(135deg, #df5f8d, #be4f9b);
       color: #ffffff;
     }
 
-    .bloomy-chip-secondary {
+    .bloomy-entry-btn-web {
       background: #ffffff;
-      color: #4b3a5b;
-      border: 1px solid #e9d7e2;
+      color: #513e5e;
+      border: 1px solid #dfccda;
     }
 
-    .bloomy-trust {
-      background: rgba(255, 255, 255, 0.94);
-      border: 1px solid #ead8e5;
+    .bloomy-entry-ios {
       border-radius: 14px;
+      background: #f4edf3;
+      border: 1px dashed #dac6d8;
+      color: #6b5877;
       padding: 10px 12px;
-      color: #5b4a69;
-      font-size: 11px;
-      line-height: 1.4;
-      box-shadow: 0 6px 18px rgba(45, 30, 55, 0.12);
-      pointer-events: auto;
+      font-size: 13px;
+      text-align: center;
     }
 
-    .bloomy-trust strong {
-      color: #3c2f47;
+    .bloomy-entry-footer {
+      margin-top: 12px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      color: #6d5a79;
+      font-size: 12px;
+    }
+
+    .bloomy-entry-footer a {
+      color: #7b3f63;
+      font-weight: 700;
+      text-decoration: none;
     }
 
     @media (max-width: 640px) {
-      .bloomy-quick-links {
-        right: 10px;
-        top: 10px;
-        bottom: auto;
-        left: auto;
-        max-width: 210px;
+      .bloomy-entry-card {
+        padding: 18px;
+        border-radius: 18px;
       }
 
-      .bloomy-chip {
-        width: auto;
-        font-size: 12px;
-        padding: 8px 12px;
-      }
-
-      .bloomy-trust {
-        display: none;
+      .bloomy-entry-title {
+        font-size: 24px;
       }
     }
   </style>
@@ -185,23 +240,63 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <div class="bloomy-quick-links">
-    <a
-      class="bloomy-chip bloomy-chip-primary"
-      href="https://github.com/FatimaMumtaz86/bloomy/releases/latest/download/app-release.apk"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Download Android APK
-    </a>
-    <a class="bloomy-chip bloomy-chip-secondary" href="/privacy-policy.html">
-      Privacy Policy
-    </a>
-    <div class="bloomy-trust">
-      <div><strong>Version:</strong> 1.0.0+1</div>
-      <div><strong>APK SHA1:</strong> 9fe2478497cafe44d968af7992554002e58b440a</div>
+  <div id="bloomy-entry-overlay" class="bloomy-entry-overlay">
+    <div class="bloomy-entry-card" role="dialog" aria-modal="true" aria-labelledby="bloomy-entry-title">
+      <div class="bloomy-entry-badge">Start Here</div>
+      <h1 id="bloomy-entry-title" class="bloomy-entry-title">Choose your Bloomy path</h1>
+      <p class="bloomy-entry-subtitle">
+        Android users can install the app. If you are not on Android, continue directly on web.
+      </p>
+
+      <div class="bloomy-entry-actions">
+        <a
+          class="bloomy-entry-btn bloomy-entry-btn-android"
+          href="https://github.com/FatimaMumtaz86/bloomy/releases/latest/download/app-release.apk"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Download Android APK
+        </a>
+
+        <button id="bloomy-continue-web" type="button" class="bloomy-entry-btn bloomy-entry-btn-web">
+          Not an Android user? Continue on web
+        </button>
+
+        <div class="bloomy-entry-ios">It will bloom soon on iPhone iOS.</div>
+      </div>
+
+      <div class="bloomy-entry-footer">
+        <span>Version 1.0.0+1</span>
+        <a href="privacy-policy.html">Privacy Policy</a>
+      </div>
     </div>
   </div>
+  <script>
+    (function () {
+      var entryKey = 'bloomy_web_entry_choice';
+      var overlay = document.getElementById('bloomy-entry-overlay');
+      var continueBtn = document.getElementById('bloomy-continue-web');
+
+      if (!overlay || !continueBtn) {
+        return;
+      }
+
+      try {
+        if (window.localStorage.getItem(entryKey) === 'web') {
+          return;
+        }
+      } catch (_) {}
+
+      overlay.classList.add('visible');
+
+      continueBtn.addEventListener('click', function () {
+        try {
+          window.localStorage.setItem(entryKey, 'web');
+        } catch (_) {}
+        overlay.classList.remove('visible');
+      });
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async=""></script>
 
 
