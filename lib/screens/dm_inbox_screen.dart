@@ -421,7 +421,8 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
         return a.isPublic ? -1 : 1;
       });
 
-    final usersToShow = _query.isNotEmpty ? users : users.take(20).toList();
+    final usersToShow =
+      _query.isNotEmpty ? users.take(30).toList() : const <UserModel>[];
 
     return Scaffold(
       backgroundColor: AppColors.cream,
@@ -713,12 +714,14 @@ class _DmInboxScreenState extends State<DmInboxScreen> {
                       if (filteredGroupChats.isEmpty &&
                           filteredDirectChats.isEmpty &&
                           usersToShow.isEmpty)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
                           child: Center(
                             child: Text(
-                              'No chats or users found.',
-                              style: TextStyle(color: AppColors.textMed),
+                              _query.isEmpty
+                                  ? 'No chats yet. Search to start a new message.'
+                                  : 'No chats or users found.',
+                              style: const TextStyle(color: AppColors.textMed),
                             ),
                           ),
                         ),
